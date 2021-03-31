@@ -5,6 +5,134 @@ import torch.nn.functional as F
 from collections import OrderedDict
 
 
+class NetProjD(nn.Module):
+    def __init__(self):
+        super(NetProjD,self).__init__()
+        self.feature_encoder = DISC_ENCODER()
+        self.COND_DNET = nn.Linear(256,1)
+
+    def forward(self,imgs,sent_embs):
+        # [bs,nef]
+        _,features = self.feature_encoder(imgs)
+
+        return features
+
+class DISC_LOGIT(nn.Module):
+    def __init__(self):
+        super(DISC_LOGIT,self).__init__()
+        self.cls = nn.Linear(256,1)
+
+    def forward(self,features,sent_embs):
+        # [bs]
+        prob = self.cls(features)
+        # [bs]
+        match = torch.matmul(sent_embs,features.transpose(0,1))
+
+        out = match + prob
+
+        return out 
+
+
+class DISC_ENCODER(nn.Module):
+    def __init__(self):
+        super(DISC_ENCODER,self).__init__()
+        self.nef = 256
+        self.nch = 32
+        self.down_block1 = ResBlockDown(in_dim = 3         , out_dim = 1*self.nch)
+        self.down_block2 = ResBlockDown(in_dim = 1*self.nch, out_dim = 2*self.nch)
+        self.down_block3 = ResBlockDown(in_dim = 2*self.nch, out_dim = 4*self.nch)
+        self.down_block4 = ResBlockDown(in_dim = 4*self.nch, out_dim = 8*self.nch)
+        self.down_block5 = ResBlockDown(in_dim = 8*self.nch, out_dim = 8*self.nch)
+        self.down_block6 = ResBlockDown(in_dim = 8*self.nch, out_dim = 16*self.nch)
+
+        self.emb_features = nn.Linear(8*self.nch,self.nef)
+        self.emb_code = ResBlock(in_dim = 16*self.nch, out_dim = self.nef)
+        self.pool = nn.AvgPool2d(kernel_size=4,divisor_override=1)
+        print('Use DISC encoder')
+
+    def forward(self,x):
+
+        x = self.down_block1(x)
+        x = self.down_block2(x)
+        x = self.down_block3(x)
+        x = self.down_block4(x)
+        image_features = x
+        x = self.down_block5(x)
+        x = self.down_block6(x)
+        image_codes = self.emb_code(x)
+
+        # [bs,8*nch,16,16] -> [bs,8*nch,16*16]
+        image_features = image_features.view(image_features.size(0),image_features.size(1),-1)
+        # [bs,8*nch,16*16] -> [bs,16*16,8*nch]
+        image_features = image_features.transpose(1,2)
+        # [bs,16*16,8*nch] -> [bs,16*16,nef]
+        image_features = self.emb_features(image_features)
+        # [bs,nef,16*16]
+        image_features = image_features.permute(0,2,1)
+
+        # Global Sum Pooling
+        #[bs,nef,1,1]
+        image_codes = self.pool(image_codes)
+        #[bs,nef]
+        image_codes = image_codes.view(image_codes.size(0),-1)
+
+        return image_features,image_codes
+
+
+def conv_nxn(in_planes, out_planes,n,bias=False,spec_norm=False):
+    "1x1 convolution with padding"
+
+    if n==1:
+        padding = 0
+    else:
+        padding = 1
+
+    conv = nn.Conv2d(in_planes,out_planes,kernel_size=n,stride=1,padding=padding,bias=bias)
+    if spec_norm:
+        conv = spectral_norm(conv)
+
+    return conv
+
+
+class ResBlock(nn.Module):
+    def __init__(self,in_dim,out_dim,spec_norm=False):
+        super(ResBlock,self).__init__()
+        self.conv2d_res_1x1 = conv_nxn(in_planes=in_dim,out_planes=out_dim,n=1,spec_norm=spec_norm)
+        self.conv2d_plain1_3x3 = conv_nxn(in_planes=in_dim,out_planes=out_dim,n=3,spec_norm=spec_norm)
+        self.conv2d_plain2_3x3 = conv_nxn(in_planes=out_dim,out_planes=out_dim,n=3,spec_norm=spec_norm)
+        
+    def forward(self,x):
+        x_res = self.conv2d_res_1x1(x)
+
+        x_plain = nn.ReLU()(x)
+        x_plain = self.conv2d_plain1_3x3(x_plain)
+        x_plain = nn.ReLU()(x_plain)
+        x_plain = self.conv2d_plain2_3x3(x_plain)
+
+        out = x_res + x_plain
+
+        return out
+        
+        
+class ResBlockDown(ResBlock):
+    def __init__(self,in_dim,out_dim,spec_norm=False):
+        super(ResBlockDown,self).__init__(in_dim = in_dim, out_dim = out_dim, spec_norm = spec_norm)
+        self.down = nn.AvgPool2d(kernel_size=2)
+
+    def forward(self,x):
+        x_res = self.conv2d_res_1x1(x)
+        x_res = self.down(x_res)
+        
+        x_plain = nn.ReLU()(x)
+        x_plain = self.conv2d_plain1_3x3(x_plain)
+        x_plain = nn.ReLU()(x_plain)
+        x_plain = self.conv2d_plain2_3x3(x_plain)
+        x_plain = self.down(x_plain)
+
+        out = x_res + x_plain
+        return out
+
+
 
 class NetG(nn.Module):
     def __init__(self, ngf=64, nz=100):
