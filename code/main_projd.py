@@ -116,17 +116,19 @@ def train(dataloader,netG,netD,text_encoder,optimizerG,optimizerD,state_epoch,ba
 
             output = netD.COND_DNET(real_features[:(batch_size - 1)], sent_emb[1:batch_size])
             errD_mismatch = torch.nn.ReLU()(1.0 + output).mean()
-
-            # synthesize fake images
-            noise = torch.randn(batch_size, 100)
-            noise=noise.to(device)
-            fake = netG(noise,sent_emb)  
             
-            # G does not need update with D
-            fake_features = netD(fake.detach()) 
+            errD_fake = 0.0
+            if not cfg.TRAIN.ONLY_REAL:
+                # synthesize fake images
+                noise = torch.randn(batch_size, 100)
+                noise=noise.to(device)
+                fake = netG(noise,sent_emb)  
+                
+                # G does not need update with D
+                fake_features = netD(fake.detach()) 
 
-            errD_fake = netD.COND_DNET(fake_features,sent_emb)
-            errD_fake = torch.nn.ReLU()(1.0 + errD_fake).mean()          
+                errD_fake = netD.COND_DNET(fake_features,sent_emb)
+                errD_fake = torch.nn.ReLU()(1.0 + errD_fake).mean()          
 
             errD = errD_real + (errD_fake + errD_mismatch)/2.0
             optimizerD.zero_grad()
@@ -165,8 +167,8 @@ def train(dataloader,netG,netD,text_encoder,optimizerG,optimizerD,state_epoch,ba
             errG.backward()
             optimizerG.step()
 
-            print('[%d/%d][%d/%d] Loss_D: %.3f Loss_G %.3f'
-                % (epoch, cfg.TRAIN.MAX_EPOCH, step, len(dataloader), errD.item(), errG.item()))
+            print('[%d/%d][%d/%d] Loss_D: %.3f Loss_G %.3f errD_fake %.3f'
+                % (epoch, cfg.TRAIN.MAX_EPOCH, step, len(dataloader), errD.item(), errG.item(), errD_fake))
 
         vutils.save_image(fake.data,
                         '%s/imgs/fake_samples_epoch_%03d.png' % (output_dir, epoch),
