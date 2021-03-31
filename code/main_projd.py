@@ -213,9 +213,9 @@ if __name__ == "__main__":
     output_dir = '../output/%s_%s' % \
         (cfg.DATASET_NAME, cfg.CONFIG_NAME)
 
-    os.mkdir_p(output_dir)
-    os.mkdir_p(output_dir+'/imgs')
-    os.mkdir_p(output_dir+'/models')
+    mkdir_p(output_dir)
+    mkdir_p(output_dir+'/imgs')
+    mkdir_p(output_dir+'/models')
 
     torch.cuda.set_device(cfg.GPU_ID)
     cudnn.benchmark = True

@@ -9,9 +9,9 @@ class NetProjD(nn.Module):
     def __init__(self):
         super(NetProjD,self).__init__()
         self.feature_encoder = DISC_ENCODER()
-        self.COND_DNET = nn.Linear(256,1)
+        self.COND_DNET = DISC_LOGIT()
 
-    def forward(self,imgs,sent_embs):
+    def forward(self,imgs):
         # [bs,nef]
         _,features = self.feature_encoder(imgs)
 
