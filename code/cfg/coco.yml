@@ -1,4 +1,4 @@
-CONFIG_NAME: 'coco'
+CONFIG_NAME: 'DF-GAN'
 
 DATASET_NAME: 'coco'
 DATA_DIR: '../data/coco'

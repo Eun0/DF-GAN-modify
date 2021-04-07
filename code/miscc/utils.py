@@ -1,4 +1,6 @@
 import os
+import sys
+import logging
 import errno
 import numpy as np
 from torch.nn import init
@@ -26,6 +28,26 @@ COLOR_DIC = {0:[128,64,128],  1:[244, 35,232],
              18:[0,  0, 70],  19:[0, 0,  0]}
 FONT_MAX = 50
 
+
+def setup_logger(name,save_dir,distributed_rank=0,filename='log.txt'):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    if distributed_rank > 0:
+        return logger
+    
+    ch = logging.StreamHandler(stream=sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+
+    if save_dir:
+        fh = logging.FileHandler(os.path.join(save_dir,filename))
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+
+    return logger
 
 def drawCaption(convas, captions, ixtoword, vis_size, off1=2, off2=2):
     num = captions.size(0)

@@ -1,4 +1,4 @@
-CONFIG_NAME: 'proj_disc_seed2020'
+CONFIG_NAME: 'proj_disc_v2_real'
 
 DATASET_NAME: 'coco'
 DATA_DIR: '../data/coco'

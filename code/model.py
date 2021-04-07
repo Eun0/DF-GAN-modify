@@ -4,11 +4,67 @@ import numpy as np
 import torch.nn.functional as F
 from collections import OrderedDict
 
+class NetProjD_V2(nn.Module):
+    def __init__(self,nch=32):
+        super(NetProjD_V2,self).__init__()
+        self.feature_encoder = DISC_ENCODER_V2(nch)
+        self.COND_DNET = DISC_LOGIT()
+
+    def forward(self,imgs):
+        # [bs,nef]
+        _,features = self.feature_encoder(imgs)
+
+        return features
+
+class DISC_ENCODER_V2(nn.Module):
+    def __init__(self,nch):
+        super(DISC_ENCODER_V2,self).__init__()
+        self.nef = 256
+        self.nch = nch
+        self.down_block1 = ResBlockDown(in_dim = 3         , out_dim = 1*self.nch)
+        self.down_block2 = ResBlockDown(in_dim = 1*self.nch, out_dim = 2*self.nch)
+        self.down_block3 = ResBlockDown(in_dim = 2*self.nch, out_dim = 4*self.nch)
+        self.down_block4 = ResBlockDown(in_dim = 4*self.nch, out_dim = 8*self.nch)
+        self.down_block5 = ResBlockDown(in_dim = 8*self.nch, out_dim = 16*self.nch)
+        self.down_block6 = ResBlockDown(in_dim = 16*self.nch, out_dim = 16*self.nch)
+
+        self.emb_features = nn.Linear(8*self.nch,self.nef)
+        self.emb_code = ResBlock(in_dim = 16*self.nch, out_dim = self.nef)
+        self.pool = nn.AvgPool2d(kernel_size=4,divisor_override=1)
+        print('Use DISC_v2 encoder')
+
+    def forward(self,x):
+
+        x = self.down_block1(x)
+        x = self.down_block2(x)
+        x = self.down_block3(x)
+        x = self.down_block4(x)
+        image_features = x
+        x = self.down_block5(x)
+        x = self.down_block6(x)
+        image_codes = self.emb_code(x)
+
+        # [bs,8*nch,16,16] -> [bs,8*nch,16*16]
+        image_features = image_features.view(image_features.size(0),image_features.size(1),-1)
+        # [bs,8*nch,16*16] -> [bs,16*16,8*nch]
+        image_features = image_features.transpose(1,2)
+        # [bs,16*16,8*nch] -> [bs,16*16,nef]
+        image_features = self.emb_features(image_features)
+        # [bs,nef,16*16]
+        image_features = image_features.permute(0,2,1)
+
+        # Global Sum Pooling
+        #[bs,nef,1,1]
+        image_codes = self.pool(image_codes)
+        #[bs,nef]
+        image_codes = image_codes.view(image_codes.size(0),-1)
+
+        return image_features,image_codes
 
 class NetProjD(nn.Module):
-    def __init__(self):
+    def __init__(self,nch=32):
         super(NetProjD,self).__init__()
-        self.feature_encoder = DISC_ENCODER()
+        self.feature_encoder = DISC_ENCODER(nch)
         self.COND_DNET = DISC_LOGIT()
 
     def forward(self,imgs):
@@ -20,24 +76,21 @@ class NetProjD(nn.Module):
 class DISC_LOGIT(nn.Module):
     def __init__(self):
         super(DISC_LOGIT,self).__init__()
-        self.cls = nn.Linear(256,1)
-
+        self.proj = nn.Sequential(nn.Linear(256,128),nn.LeakyReLU(0.2,inplace=True),nn.Linear(128,1))
     def forward(self,features,sent_embs):
         # [bs]
-        prob = self.cls(features)
-        # [bs]
         match = torch.matmul(sent_embs,features.transpose(0,1))
-
+        # [bs]
+        prob = self.proj(features)
         out = match + prob
-
         return out 
 
 
 class DISC_ENCODER(nn.Module):
-    def __init__(self):
+    def __init__(self,nch):
         super(DISC_ENCODER,self).__init__()
         self.nef = 256
-        self.nch = 32
+        self.nch = nch
         self.down_block1 = ResBlockDown(in_dim = 3         , out_dim = 1*self.nch)
         self.down_block2 = ResBlockDown(in_dim = 1*self.nch, out_dim = 2*self.nch)
         self.down_block3 = ResBlockDown(in_dim = 2*self.nch, out_dim = 4*self.nch)
@@ -106,7 +159,7 @@ class ResBlock(nn.Module):
 
         x_plain = nn.ReLU()(x)
         x_plain = self.conv2d_plain1_3x3(x_plain)
-        x_plain = nn.ReLU()(x_plain)
+        x_plain = nn.ReLU(inplace=True)(x_plain)
         x_plain = self.conv2d_plain2_3x3(x_plain)
 
         out = x_res + x_plain
@@ -125,7 +178,7 @@ class ResBlockDown(ResBlock):
         
         x_plain = nn.ReLU()(x)
         x_plain = self.conv2d_plain1_3x3(x_plain)
-        x_plain = nn.ReLU()(x_plain)
+        x_plain = nn.ReLU(inplace=True)(x_plain)
         x_plain = self.conv2d_plain2_3x3(x_plain)
         x_plain = self.down(x_plain)
 
@@ -323,10 +376,10 @@ class resD(nn.Module):
         self.learned_shortcut = (fin != fout)
         self.conv_r = nn.Sequential(
             nn.Conv2d(fin, fout, 4, 2, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2,inplace=True),
             
             nn.Conv2d(fout, fout, 3, 1, 1, bias=False),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2,inplace=True),
         )
 
         self.conv_s = nn.Conv2d(fin,fout, 1, stride=1, padding=0)

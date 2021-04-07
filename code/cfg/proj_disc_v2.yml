@@ -1,4 +1,4 @@
-CONFIG_NAME: 'proj_disc_real'
+CONFIG_NAME: 'proj_disc_v2'
 
 DATASET_NAME: 'coco'
 DATA_DIR: '../data/coco'
@@ -12,7 +12,6 @@ loss: 'hinge'
 TREE:
     BRANCH_NUM: 1
     BASE_SIZE: 256
-    
 
 
 TRAIN:
@@ -20,7 +19,6 @@ TRAIN:
     BATCH_SIZE: 24
     MAX_EPOCH: 121
     NET_G: '../test'
-    ONLY_REAL: True
 
 
 TEXT:
