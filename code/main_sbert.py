@@ -243,30 +243,9 @@ if __name__ == "__main__":
         transforms.RandomCrop(imsize),
         transforms.RandomHorizontalFlip()])
 
-
-
     dataset = SBERTSentDataset(data_dir=cfg.DATA_DIR,mode='train',transform=image_transform,cfg=cfg)
 
     dataloader = torch.utils.data.DataLoader(dataset,batch_size = batch_size,drop_last = True,shuffle=True,num_workers=int(cfg.WORKERS))
-
-    # if cfg.B_VALIDATION:
-    #     dataset = TextDataset(cfg.DATA_DIR, 'test',
-    #                             base_size=cfg.TREE.BASE_SIZE,
-    #                             transform=image_transform)
-    #     print(dataset.n_words, dataset.embeddings_num)
-    #     assert dataset
-    #     dataloader = torch.utils.data.DataLoader(
-    #         dataset, batch_size=batch_size, drop_last=True,
-    #         shuffle=True, num_workers=int(cfg.WORKERS))
-    # else:     
-    #     dataset = TextDataset(cfg.DATA_DIR, 'train',
-    #                         base_size=cfg.TREE.BASE_SIZE,
-    #                         transform=image_transform)
-    #     print(dataset.n_words, dataset.embeddings_num)
-    #     assert dataset
-    #     dataloader = torch.utils.data.DataLoader(
-    #         dataset, batch_size=batch_size, drop_last=True,
-    #         shuffle=True, num_workers=int(cfg.WORKERS))
 
     # # validation data #
 
@@ -275,14 +254,6 @@ if __name__ == "__main__":
     netG = NetG(cfg.TRAIN.NF, 100,cfg.TEXT.EMBEDDING_DIM).cuda()
     netD = NetD(cfg.TRAIN.NF,cfg.TEXT.EMBEDDING_DIM).cuda()
 
-    #text_encoder = RNN_ENCODER(dataset.n_words, nhidden=cfg.TEXT.EMBEDDING_DIM)
-    #state_dict = torch.load(cfg.TEXT.DAMSM_NAME, map_location=lambda storage, loc: storage)
-    #text_encoder.load_state_dict(state_dict)
-    #text_encoder.cuda()
-
-    #for p in text_encoder.parameters():
-    #    p.requires_grad = False
-    #text_encoder.eval()
     text_encoder = None
 
     state_epoch = args.resume_epoch
