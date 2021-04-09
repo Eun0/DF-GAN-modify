@@ -29,7 +29,7 @@ COLOR_DIC = {0:[128,64,128],  1:[244, 35,232],
 FONT_MAX = 50
 
 
-def setup_logger(name,save_dir,distributed_rank=0,filename='log.txt'):
+def setup_logger(name,save_dir='',distributed_rank=0,filename='log.txt'):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     if distributed_rank > 0:
