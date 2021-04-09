@@ -186,21 +186,72 @@ class ResBlockDown(ResBlock):
         return out
 
 
+class NetG_V2(nn.Module):
+    def __init__(self, ngf=64, nz=100,nef=256):
+        super(NetG_V2, self).__init__()
+        self.ngf = ngf
+
+        # layer1输入的是一个100x1x1的随机噪声, 输出尺寸(ngf*8)x4x4
+        self.fc = nn.Linear(nz, ngf*8*4*4)
+        self.dim_fc = nn.Linear(nef,256)
+        self.block0 = G_Block(ngf * 8, ngf * 8, 256)#4x4
+        self.block1 = G_Block(ngf * 8, ngf * 8, 256)#4x4
+        self.block2 = G_Block(ngf * 8, ngf * 8, 256)#8x8
+        self.block3 = G_Block(ngf * 8, ngf * 8, 256)#16x16
+        self.block4 = G_Block(ngf * 8, ngf * 4, 256)#32x32
+        self.block5 = G_Block(ngf * 4, ngf * 2, 256)#64x64
+        self.block6 = G_Block(ngf * 2, ngf * 1, 256)#128x128
+
+        self.conv_img = nn.Sequential(
+            nn.LeakyReLU(0.2,inplace=True),
+            nn.Conv2d(ngf, 3, 3, 1, 1),
+            nn.Tanh(),
+        )
+
+    def forward(self, x, c):
+
+        out = self.fc(x)
+        c = self.dim_fc(c)
+        out = out.view(x.size(0), 8*self.ngf, 4, 4)
+        out = self.block0(out,c)
+
+        out = F.interpolate(out, scale_factor=2)
+        out = self.block1(out,c)
+
+        out = F.interpolate(out, scale_factor=2)
+        out = self.block2(out,c)
+
+        out = F.interpolate(out, scale_factor=2)
+        out = self.block3(out,c)
+
+        out = F.interpolate(out, scale_factor=2)
+        out = self.block4(out,c)
+
+        out = F.interpolate(out, scale_factor=2)
+        out = self.block5(out,c)
+
+        out = F.interpolate(out, scale_factor=2)
+        out = self.block6(out,c)
+
+        out = self.conv_img(out)
+
+        return out
+
 
 class NetG(nn.Module):
-    def __init__(self, ngf=64, nz=100):
+    def __init__(self, ngf=64, nz=100,nef=256):
         super(NetG, self).__init__()
         self.ngf = ngf
 
         # layer1输入的是一个100x1x1的随机噪声, 输出尺寸(ngf*8)x4x4
         self.fc = nn.Linear(nz, ngf*8*4*4)
-        self.block0 = G_Block(ngf * 8, ngf * 8)#4x4
-        self.block1 = G_Block(ngf * 8, ngf * 8)#4x4
-        self.block2 = G_Block(ngf * 8, ngf * 8)#8x8
-        self.block3 = G_Block(ngf * 8, ngf * 8)#16x16
-        self.block4 = G_Block(ngf * 8, ngf * 4)#32x32
-        self.block5 = G_Block(ngf * 4, ngf * 2)#64x64
-        self.block6 = G_Block(ngf * 2, ngf * 1)#128x128
+        self.block0 = G_Block(ngf * 8, ngf * 8, nef)#4x4
+        self.block1 = G_Block(ngf * 8, ngf * 8, nef)#4x4
+        self.block2 = G_Block(ngf * 8, ngf * 8, nef)#8x8
+        self.block3 = G_Block(ngf * 8, ngf * 8, nef)#16x16
+        self.block4 = G_Block(ngf * 8, ngf * 4, nef)#32x32
+        self.block5 = G_Block(ngf * 4, ngf * 2, nef)#64x64
+        self.block6 = G_Block(ngf * 2, ngf * 1, nef)#128x128
 
         self.conv_img = nn.Sequential(
             nn.LeakyReLU(0.2,inplace=True),
@@ -240,16 +291,16 @@ class NetG(nn.Module):
 
 class G_Block(nn.Module):
 
-    def __init__(self, in_ch, out_ch):
+    def __init__(self, in_ch, out_ch, nef):
         super(G_Block, self).__init__()
 
         self.learnable_sc = in_ch != out_ch 
         self.c1 = nn.Conv2d(in_ch, out_ch, 3, 1, 1)
         self.c2 = nn.Conv2d(out_ch, out_ch, 3, 1, 1)
-        self.affine0 = affine(in_ch)
-        self.affine1 = affine(in_ch)
-        self.affine2 = affine(out_ch)
-        self.affine3 = affine(out_ch)
+        self.affine0 = affine(in_ch,nef)
+        self.affine1 = affine(in_ch,nef)
+        self.affine2 = affine(out_ch,nef)
+        self.affine3 = affine(out_ch,nef)
         self.gamma = nn.Parameter(torch.zeros(1))
         if self.learnable_sc:
             self.c_sc = nn.Conv2d(in_ch,out_ch, 1, stride=1, padding=0)
@@ -279,16 +330,16 @@ class G_Block(nn.Module):
 
 class affine(nn.Module):
 
-    def __init__(self, num_features):
+    def __init__(self, num_features,nef=256):
         super(affine, self).__init__()
 
         self.fc_gamma = nn.Sequential(OrderedDict([
-            ('linear1',nn.Linear(256, 256)),
+            ('linear1',nn.Linear(nef, 256)),
             ('relu1',nn.ReLU(inplace=True)),
             ('linear2',nn.Linear(256, num_features)),
             ]))
         self.fc_beta = nn.Sequential(OrderedDict([
-            ('linear1',nn.Linear(256, 256)),
+            ('linear1',nn.Linear(nef, 256)),
             ('relu1',nn.ReLU(inplace=True)),
             ('linear2',nn.Linear(256, num_features)),
             ]))
@@ -317,19 +368,19 @@ class affine(nn.Module):
 
 
 class D_GET_LOGITS(nn.Module):
-    def __init__(self, ndf):
+    def __init__(self, ndf,nef=256):
         super(D_GET_LOGITS, self).__init__()
         self.df_dim = ndf
 
         self.joint_conv = nn.Sequential(
-            nn.Conv2d(ndf * 16+256, ndf * 2, 3, 1, 1, bias=False),
+            nn.Conv2d(ndf * 16 + nef, ndf * 2, 3, 1, 1, bias=False),
             nn.LeakyReLU(0.2,inplace=True),
             nn.Conv2d(ndf * 2, 1, 4, 1, 0, bias=False),
         )
 
     def forward(self, out, y):
         
-        y = y.view(-1, 256, 1, 1)
+        y = y.view(-1, y.size(1), 1, 1)
         y = y.repeat(1, 1, 4, 4)
         h_c_code = torch.cat((out, y), 1)
         out = self.joint_conv(h_c_code)
@@ -341,7 +392,7 @@ class D_GET_LOGITS(nn.Module):
 
 # 定义鉴别器网络D
 class NetD(nn.Module):
-    def __init__(self, ndf):
+    def __init__(self, ndf,nef=256):
         super(NetD, self).__init__()
 
         self.conv_img = nn.Conv2d(3, ndf, 3, 1, 1)#128
@@ -352,7 +403,7 @@ class NetD(nn.Module):
         self.block4 = resD(ndf * 16, ndf * 16)#4
         self.block5 = resD(ndf * 16, ndf * 16)#4
 
-        self.COND_DNET = D_GET_LOGITS(ndf)
+        self.COND_DNET = D_GET_LOGITS(ndf,nef)
 
     def forward(self,x):
 
@@ -363,7 +414,7 @@ class NetD(nn.Module):
         out = self.block3(out)
         out = self.block4(out)
         out = self.block5(out)
-
+        
         return out
 
 
