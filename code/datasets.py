@@ -86,6 +86,67 @@ def get_imgs(img_path, imsize, bbox=None,
     return ret
 
 
+def get_img(img_path,normalize,transform=None):
+    img = Image.open(img_path).convert('RGB')
+    if transform is not None:
+        img = transform(img)
+    img = normalize(img)
+    return img 
+
+
+class SBERTSentDataset(data.Dataset):
+    def __init__(self,data_dir,mode,transform,cfg):
+        self.data_dir = data_dir
+        self.mode = mode
+        self.transform = transform
+
+        self.img_size = cfg.TREE.BASE_SIZE
+        self.caps_per_image = cfg.TEXT.CAPTIONS_PER_IMAGE
+
+        self.norm = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,0.5,0.5),(0.5,0.5,0.5))]
+        )
+
+        self.filenames = self._load_filenames(self.data_dir,self.mode)
+        self._load_text_data(self.data_dir,self.mode)
+
+    def __len__(self):
+        return len(self.filenames)
+
+    def __getitem__(self,idx):
+        key = self.filenames[idx]
+        img_path = f'{self.data_dir}/images/{key}.jpg'
+        img = get_img(img_path,transform=self.transform,normalize=self.norm)
+        sent_ix = np.random.randint(0,self.caps_per_image)
+        new_sent_ix = idx * self.caps_per_image + sent_ix
+        text_data = self.get_caption(new_sent_ix)
+        return img,text_data,key
+
+    def _load_filenames(self,data_dir,mode):
+        file_path = f'{data_dir}/{mode}/filenames.pickle'
+        if os.path.isfile(file_path):
+            filenames = pickle.load(open(file_path,'rb'))
+            print(f'Load filenames from {file_path}, len : {len(filenames)}')
+        else:
+            raise NotImplementedError('Download the meta data')
+        return filenames
+
+    def _load_text_data(self,data_dir,mode):
+        train_path = os.path.join(data_dir,'train_sent_embs.npy')
+        file_path = train_path if mode=='train' else train_path.replace('train','test')
+        if os.path.isfile(file_path):
+            self.sents = np.load(open(file_path,'rb'))
+            #self.words = np.load(open(file_path,'rb'))
+            #self.masks = np.load(open(file_path.replace('words','mask'),'rb'))
+        else:
+            raise NotImplementedError
+
+    def get_caption(self, sent_ix):
+        #return self.words[sent_ix],self.sents[sent_ix],self.masks[sent_ix]
+        return self.sents[sent_ix]
+
+
 class TextDataset(data.Dataset):
     def __init__(self, data_dir, split='train',
                  base_size=64,
