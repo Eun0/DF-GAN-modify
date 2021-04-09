@@ -99,6 +99,7 @@ class SBERTSentDataset(data.Dataset):
         self.data_dir = data_dir
         self.mode = mode
         self.transform = transform
+        self.encoder_name = cfg.TEXT.ENCODER_NAME
 
         self.img_size = cfg.TREE.BASE_SIZE
         self.caps_per_image = cfg.TEXT.CAPTIONS_PER_IMAGE
@@ -133,7 +134,7 @@ class SBERTSentDataset(data.Dataset):
         return filenames
 
     def _load_text_data(self,data_dir,mode):
-        train_path = os.path.join(data_dir,'train_sent_embs.npy')
+        train_path = os.path.join(data_dir,f'{self.encoder_name}_train_sent.npy')
         file_path = train_path if mode=='train' else train_path.replace('train','test')
         if os.path.isfile(file_path):
             self.sents = np.load(open(file_path,'rb'))
