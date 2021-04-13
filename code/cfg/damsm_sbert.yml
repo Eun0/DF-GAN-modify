@@ -1,8 +1,8 @@
-CONFIG_NAME: 'sbert_gen_v2'
+CONFIG_NAME: 'damsm_sbert'
 
 DATASET_NAME: 'coco'
 DATA_DIR: '../data/coco'
-GPU_ID: 0
+GPU_ID: 3
 WORKERS: 1
 
 
@@ -22,6 +22,7 @@ TRAIN:
 
 
 TEXT:
-    EMBEDDING_DIM: 768
+    EMBEDDING_DIM: 256
     CAPTIONS_PER_IMAGE: 5
-    ENCODER_NAME: 'sbert'
+    DAMSM_NAME: ''
+    ENCODER_NAME: 'damsm_sbert'

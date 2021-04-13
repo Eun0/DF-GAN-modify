@@ -24,4 +24,4 @@ TRAIN:
 TEXT:
     EMBEDDING_DIM: 768
     CAPTIONS_PER_IMAGE: 5
-    DAMSM_NAME: '../DAMSMencoders/coco/text_encoder100.pth'
+    ENCODER_NAME: 'sbert'
