@@ -11,6 +11,7 @@ import torch.nn as nn
 from PIL import Image, ImageDraw, ImageFont
 from copy import deepcopy
 import skimage.transform
+from scipy.stats import truncnorm
 
 from miscc.config import cfg
 
@@ -28,6 +29,14 @@ COLOR_DIC = {0:[128,64,128],  1:[244, 35,232],
              18:[0,  0, 70],  19:[0, 0,  0]}
 FONT_MAX = 50
 
+def _init_fn(worker_id):
+    np.random.seed(12+worker_id)
+
+
+def truncated_z_sample(batch_size, z_dim, truncation=0.5, seed=None):
+  state = None if seed is None else np.random.RandomState(seed)
+  values = truncnorm.rvs(-2, 2, size=(batch_size, z_dim), random_state=state)
+  return truncation * values
 
 def setup_logger(name,save_dir='',distributed_rank=0,filename='log.txt'):
     logger = logging.getLogger(name)
