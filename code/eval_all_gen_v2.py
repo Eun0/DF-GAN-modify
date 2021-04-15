@@ -55,6 +55,7 @@ def parse_args():
     parser.add_argument('--data_dir', dest='data_dir', type=str, default='')
     parser.add_argument('--manualSeed', type=int, help='manual seed',default=100)
     parser.add_argument('--num_samples',type=int,default=6000)
+    parser.add_argument('--start_epoch',type=int,default=0)
     parser.add_argument('--metric',type=str,default='both')
     args = parser.parse_args()
     return args
@@ -66,7 +67,7 @@ def sampling(text_encoder, image_encoder,netG, dataloader,num_samples,metric,out
  
     model_dir = f'{output_dir}/models'
     
-    model_list = sorted(glob.glob(f'{model_dir}/netG_*.pth'))
+    model_list = sorted(glob.glob(f'{model_dir}/netG_*.pth'))[start_epoch:]
 
     results = {'r_epoch':0,'R_mean':0,'f_epoch':0,'fid':1000}
    
@@ -269,6 +270,8 @@ if __name__ == "__main__":
     # for p in image_encoder.parameters():
     #     p.requires_grad = False 
     # image_encoder.eval()
+
+    start_epoch = args.start_epoch
 
     sampling(text_encoder,image_encoder, netG, dataloader,args.num_samples,args.metric,output_dir,logger)  # generate images for the whole valid dataset
         
