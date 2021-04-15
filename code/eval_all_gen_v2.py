@@ -65,7 +65,7 @@ def parse_args():
 def sampling(text_encoder, image_encoder,netG, dataloader,num_samples,metric,output_dir,logger):
     
  
-    model_dir = f'{output_dir}/Models'
+    model_dir = f'{output_dir}/models'
     
     model_list = sorted(glob.glob(f'{model_dir}/netG_*.pth'))[start_epoch:]
 
